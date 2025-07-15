@@ -19,7 +19,7 @@ use windows::{
             Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW},
             Threading::{OpenProcess, PROCESS_ACCESS_RIGHTS},
         },
-        UI::WindowsAndMessaging::{GetWindowInfo, WINDOWINFO},
+        UI::WindowsAndMessaging::{GetWindowInfo, WINDOWINFO, WS_CAPTION, WS_THICKFRAME, WS_DLGFRAME},
     },
     core::{HRESULT, PCWSTR, s, w},
 };
@@ -67,6 +67,38 @@ pub(super) fn get_os_major_version() -> u8 {
     } else {
         7
     }
+}
+
+// Check if window has native header/title bar
+pub(super) fn window_has_native_header(window_info: &WINDOWINFO) -> bool {
+    let style = window_info.dwStyle.0; // Convert WINDOW_STYLE to u32
+    
+    // Check if window has caption (title bar)
+    let has_caption = (style & WS_CAPTION.0) != 0;
+    
+    // Check if window has thick frame or dialog frame
+    let has_frame = (style & WS_THICKFRAME.0) != 0 || (style & WS_DLGFRAME.0) != 0;
+    
+    // Calculate title bar height
+    let title_bar_height = window_info.rcClient.top - window_info.rcWindow.top;
+    
+    // More strict detection: window must have BOTH caption style AND significant title bar height
+    // This filters out modern apps with custom title bars (like Chrome, WebStorm, etc.)
+    if has_caption && title_bar_height > 25 {
+        // Additional check: ensure it's not a modern app with custom title bar
+        // Modern apps typically have minimal or no difference between window and client areas
+        let left_border = window_info.rcClient.left - window_info.rcWindow.left;
+        let right_border = window_info.rcWindow.right - window_info.rcClient.right;
+        let bottom_border = window_info.rcWindow.bottom - window_info.rcClient.bottom;
+        
+        // Native windows typically have consistent borders on all sides
+        // Modern apps with custom title bars usually have minimal or no borders
+        let has_consistent_borders = left_border > 5 && right_border > 5 && bottom_border > 5;
+        
+        return has_frame && has_consistent_borders;
+    }
+    
+    false
 }
 
 pub(super) fn bgra_to_rgba(mut buffer: Vec<u8>) -> Vec<u8> {

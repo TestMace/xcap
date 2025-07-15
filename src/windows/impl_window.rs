@@ -31,7 +31,7 @@ use crate::error::XCapResult;
 use super::{
     capture::capture_window,
     impl_monitor::ImplMonitor,
-    utils::{get_process_is_dpi_awareness, get_window_info, open_process},
+    utils::{get_process_is_dpi_awareness, get_window_info, open_process, window_has_native_header},
 };
 
 #[derive(Debug, Clone)]
@@ -318,6 +318,8 @@ fn get_app_name(pid: u32) -> XCapResult<String> {
     }
 }
 
+
+
 impl ImplWindow {
     fn new(hwnd: HWND) -> ImplWindow {
         ImplWindow { hwnd }
@@ -397,12 +399,21 @@ impl ImplWindow {
 
     pub fn width(&self) -> XCapResult<u32> {
         let window_info = get_window_info(self.hwnd)?;
+        // Width is always the client area width, regardless of header type
         Ok((window_info.rcClient.right - window_info.rcClient.left) as u32)
     }
 
     pub fn height(&self) -> XCapResult<u32> {
         let window_info = get_window_info(self.hwnd)?;
-        Ok((window_info.rcClient.bottom - window_info.rcClient.top) as u32)
+        let height = if window_has_native_header(&window_info) {
+            // For windows with native headers, include the title bar area
+            // This matches the captured image height (from window top to client bottom)
+            (window_info.rcClient.bottom - window_info.rcWindow.top) as u32
+        } else {
+            // For windows without native headers, use client area height
+            (window_info.rcClient.bottom - window_info.rcClient.top) as u32
+        };
+        Ok(height)
     }
 
     pub fn is_minimized(&self) -> XCapResult<bool> {
