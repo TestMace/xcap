@@ -3,7 +3,14 @@ use std::time::Instant;
 use xcap::Window;
 
 fn normalized(filename: &str) -> String {
-    filename.replace(['|', '\\', ':', '/'], "")
+    filename.chars()
+        .map(|c| match c {
+            '|' | '\\' | ':' | '/' | '*' | '?' | '"' | '<' | '>' | '(' | ')' => '_',
+            c if c.is_control() => '_',
+            c if c as u32 > 127 => '_', // Replace non-ASCII characters
+            c => c,
+        })
+        .collect()
 }
 
 fn main() {

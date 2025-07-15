@@ -241,16 +241,13 @@ pub fn capture_window(hwnd: HWND, scale_factor: f32) -> XCapResult<RgbaImage> {
 
         // Check if window has native header to determine cropping strategy
         if window_has_native_header(&window_info) {
-            // Window has native header - preserve most of the window, only crop minimal borders
-            let border_width = (rc_client.left - rc_window.left).max(0);
-            let border_height = (rc_client.top - rc_window.top).max(0);
+            // For native headers, crop to the exact window boundaries
+            // This preserves the complete window including title bar and bottom
+            let x = ((rc_client.left - rc_window.left) as f32 * scale_factor).ceil();
+            let y = 0;
+            let w = ((rc_client.right - rc_client.left) as f32 * scale_factor).floor();
+            let h = ((rc_client.bottom - rc_window.top) as f32 * scale_factor).floor();
             
-            // For native headers, keep most of the window dimensions
-            let x = (border_width as f32 * scale_factor).ceil().max(0.0);
-            let y = 0.0; // Don't crop from top - preserve the native header
-            let w = ((rc_window.right - rc_window.left - border_width * 2) as f32 * scale_factor).floor().max(100.0);
-            let h = ((rc_window.bottom - rc_window.top) as f32 * scale_factor).floor().max(100.0);
-
             Ok(DynamicImage::ImageRgba8(image)
                 .crop(x as u32, y as u32, w as u32, h as u32)
                 .to_rgba8())
@@ -271,10 +268,6 @@ pub fn capture_window(hwnd: HWND, scale_factor: f32) -> XCapResult<RgbaImage> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, GetWindowTextW};
-    use windows::core::w;
-    use std::ffi::OsString;
-    use std::os::windows::ffi::OsStringExt;
     use windows::Win32::UI::WindowsAndMessaging::GetDesktopWindow;
 
     #[test]
@@ -321,57 +314,6 @@ mod tests {
             println!("Has caption: {}", (window_info.dwStyle.0 & WS_CAPTION.0) != 0);
             println!("Has thick frame: {}", (window_info.dwStyle.0 & WS_THICKFRAME.0) != 0);
             println!("Has dialog frame: {}", (window_info.dwStyle.0 & WS_DLGFRAME.0) != 0);
-        }
-    }
-
-    #[test]
-    fn test_window_dimensions_and_header_detection() {
-        unsafe {
-            // Test with a few different window types if available
-            let test_cases = vec![
-                (w!(""), w!("DBeaver")),  // DBeaver window
-                (w!(""), w!("Chrome")),   // Chrome window
-                (w!(""), w!("Cursor")),   // Cursor window
-            ];
-            
-            for (class_name, window_name) in test_cases {
-                if let Ok(hwnd) = FindWindowW(class_name, window_name) {
-                    if hwnd.0 != std::ptr::null_mut() {
-                        if let Ok(window_info) = get_window_info(hwnd) {
-                            let has_header = window_has_native_header(&window_info);
-                            
-                            let mut title = [0u16; 256];
-                            let title_len = GetWindowTextW(hwnd, &mut title);
-                            let title_str = OsString::from_wide(&title[..title_len as usize])
-                                .to_string_lossy()
-                                .to_string();
-                            
-                            println!("=== {} ===", title_str);
-                            println!("Has native header: {}", has_header);
-                            println!("Window rect: ({}, {}, {}, {})", 
-                                window_info.rcWindow.left, window_info.rcWindow.top,
-                                window_info.rcWindow.right, window_info.rcWindow.bottom);
-                            println!("Client rect: ({}, {}, {}, {})", 
-                                window_info.rcClient.left, window_info.rcClient.top,
-                                window_info.rcClient.right, window_info.rcClient.bottom);
-                            
-                            let window_width = window_info.rcWindow.right - window_info.rcWindow.left;
-                            let window_height = window_info.rcWindow.bottom - window_info.rcWindow.top;
-                            let client_width = window_info.rcClient.right - window_info.rcClient.left;
-                            let client_height = window_info.rcClient.bottom - window_info.rcClient.top;
-                            
-                            println!("Window size: {}x{}", window_width, window_height);
-                            println!("Client size: {}x{}", client_width, client_height);
-                            println!("Title bar height: {}", window_info.rcClient.top - window_info.rcWindow.top);
-                            println!("Left border: {}", window_info.rcClient.left - window_info.rcWindow.left);
-                            println!("Right border: {}", window_info.rcWindow.right - window_info.rcClient.right);
-                            println!("Bottom border: {}", window_info.rcWindow.bottom - window_info.rcClient.bottom);
-                            println!("Style: {:x}", window_info.dwStyle.0);
-                            println!();
-                        }
-                    }
-                }
-            }
         }
     }
 }
