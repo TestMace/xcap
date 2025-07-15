@@ -248,8 +248,14 @@ pub fn capture_window(hwnd: HWND, scale_factor: f32) -> XCapResult<RgbaImage> {
             let w = ((rc_client.right - rc_client.left) as f32 * scale_factor).floor();
             let h = ((rc_client.bottom - rc_window.top) as f32 * scale_factor).floor();
             
+            // Ensure minimum dimensions to prevent zero width/height errors
+            let w = w.max(1.0) as u32;
+            let h = h.max(1.0) as u32;
+            let x = (x as u32).min(image.width().saturating_sub(w));
+            let y = (y as u32).min(image.height().saturating_sub(h));
+            
             Ok(DynamicImage::ImageRgba8(image)
-                .crop(x as u32, y as u32, w as u32, h as u32)
+                .crop(x, y, w, h)
                 .to_rgba8())
         } else {
             // Window has no native header - use original client area cropping
@@ -258,8 +264,14 @@ pub fn capture_window(hwnd: HWND, scale_factor: f32) -> XCapResult<RgbaImage> {
             let w = ((rc_client.right - rc_client.left) as f32 * scale_factor).floor();
             let h = ((rc_client.bottom - rc_client.top) as f32 * scale_factor).floor();
 
+            // Ensure minimum dimensions to prevent zero width/height errors
+            let w = w.max(1.0) as u32;
+            let h = h.max(1.0) as u32;
+            let x = (x as u32).min(image.width().saturating_sub(w));
+            let y = (y as u32).min(image.height().saturating_sub(h));
+
             Ok(DynamicImage::ImageRgba8(image)
-                .crop(x as u32, y as u32, w as u32, h as u32)
+                .crop(x, y, w, h)
                 .to_rgba8())
         }
     }

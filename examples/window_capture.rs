@@ -26,31 +26,55 @@ fn main() {
             continue;
         }
 
+        let title = window.title().unwrap_or_else(|_| "<Unknown>".to_string());
+        let (x, y, width, height) = (
+            window.x().unwrap_or(0),
+            window.y().unwrap_or(0),
+            window.width().unwrap_or(0),
+            window.height().unwrap_or(0),
+        );
+
         println!(
             "Window: {:?} {:?} {:?}",
-            window.title().unwrap(),
+            title,
+            (x, y, width, height),
             (
-                window.x().unwrap(),
-                window.y().unwrap(),
-                window.width().unwrap(),
-                window.height().unwrap()
-            ),
-            (
-                window.is_minimized().unwrap(),
-                window.is_maximized().unwrap()
+                window.is_minimized().unwrap_or(false),
+                window.is_maximized().unwrap_or(false)
             )
         );
 
-        let image = window.capture_image().unwrap();
-        image
-            .save(format!(
-                "target/windows/window-{}-{}.png",
-                i,
-                normalized(&window.title().unwrap())
-            ))
-            .unwrap();
+        // Skip windows with invalid dimensions
+        if width <= 0 || height <= 0 {
+            println!("  Skipping window with invalid dimensions: {}x{}", width, height);
+            continue;
+        }
 
-        i += 1;
+        match window.capture_image() {
+            Ok(image) => {
+                if image.width() == 0 || image.height() == 0 {
+                    println!("  Captured image has zero dimensions: {}x{}", image.width(), image.height());
+                    continue;
+                }
+                
+                match image.save(format!(
+                    "target/windows/window-{}-{}.png",
+                    i,
+                    normalized(&title)
+                )) {
+                    Ok(_) => {
+                        println!("  Saved: window-{}-{}.png ({}x{})", i, normalized(&title), image.width(), image.height());
+                        i += 1;
+                    }
+                    Err(e) => {
+                        println!("  Failed to save image for '{}': {}", title, e);
+                    }
+                }
+            }
+            Err(e) => {
+                println!("  Failed to capture '{}': {}", title, e);
+            }
+        }
     }
 
     println!("运行耗时: {:?}", start.elapsed());
