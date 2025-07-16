@@ -405,15 +405,7 @@ impl ImplWindow {
 
     pub fn height(&self) -> XCapResult<u32> {
         let window_info = get_window_info(self.hwnd)?;
-        let height = if window_has_native_header(&window_info) {
-            // For windows with native headers, include the title bar area
-            // This matches the captured image height (from window top to client bottom)
-            (window_info.rcClient.bottom - window_info.rcWindow.top) as u32
-        } else {
-            // For windows without native headers, use client area height
-            (window_info.rcClient.bottom - window_info.rcClient.top) as u32
-        };
-        Ok(height)
+        Ok((window_info.rcClient.bottom - window_info.rcClient.top) as u32)
     }
 
     pub fn is_minimized(&self) -> XCapResult<bool> {
